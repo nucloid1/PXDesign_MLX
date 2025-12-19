@@ -18,6 +18,12 @@ import numpy as np
 import torch
 from protenix.model.utils import centre_random_augmentation
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback if tqdm not available
+    tqdm = None
+
 
 class InferenceNoiseScheduler:
     """
@@ -130,22 +136,17 @@ def sample_diffusion(
     dtype = s_inputs.dtype
     print("sampling eta schedule: ", step_scale_eta)
 
-    def _chunk_sample_diffusion(chunk_n_sample, inplace_safe, chunk_idx=0, total_chunks=1):
+    def _chunk_sample_diffusion(chunk_n_sample, inplace_safe, chunk_idx=0, total_chunks=1, pbar=None):
         # init noise
         # [..., N_sample, N_atom, 3]
         x_l = noise_schedule[0] * torch.randn(
             size=(*batch_shape, chunk_n_sample, N_atom, 3), device=device, dtype=dtype
         )  # NOTE: set seed in distributed training
         T = len(noise_schedule)
+
         for step_t, (c_tau_last, c_tau) in enumerate(
             zip(noise_schedule[:-1], noise_schedule[1:])
         ):
-            # Progress indicator for diffusion steps
-            if step_t % 50 == 0 or step_t == T - 1:
-                samples_start = chunk_idx * diffusion_chunk_size if diffusion_chunk_size else 0
-                samples_end = samples_start + chunk_n_sample
-                print(f"  Diffusion step [{step_t+1}/{T}] for samples [{samples_start+1}-{samples_end}/{N_sample}]")
-
             # [..., N_sample, N_atom, 3]
             x_l = (
                 centre_random_augmentation(x_input_coords=x_l, N_sample=1)
@@ -213,37 +214,53 @@ def sample_diffusion(
 
         return x_l
 
-    if diffusion_chunk_size is None:
-        print(f"\n{'='*60}")
-        print(f"Starting diffusion for {N_sample} samples")
-        print(f"{'='*60}")
-        x_l = _chunk_sample_diffusion(N_sample, inplace_safe=inplace_safe, chunk_idx=0, total_chunks=1)
-        print(f"✓ Completed generation of all {N_sample} samples")
+    print(f"\n{'='*60}")
+    print(f"🧬 Generating {N_sample} protein designs")
+    print(f"{'='*60}\n")
+
+    # Create single overall progress bar
+    if tqdm is not None:
+        pbar = tqdm(
+            total=N_sample,
+            desc="🧬 Diffusion Progress",
+            unit="sample",
+            ncols=100,
+            bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
+        )
     else:
-        print(f"\n{'='*60}")
-        print(f"Starting chunked diffusion: {N_sample} samples in chunks of {diffusion_chunk_size}")
-        print(f"{'='*60}")
+        pbar = None
+
+    if diffusion_chunk_size is None:
+        x_l = _chunk_sample_diffusion(N_sample, inplace_safe=inplace_safe, chunk_idx=0, total_chunks=1, pbar=pbar)
+        if pbar:
+            pbar.update(N_sample)
+    else:
         x_l = []
         no_chunks = N_sample // diffusion_chunk_size + (
             N_sample % diffusion_chunk_size != 0
         )
+
         for i in range(no_chunks):
             chunk_n_sample = (
                 diffusion_chunk_size
                 if i < no_chunks - 1
                 else N_sample - i * diffusion_chunk_size
             )
-            samples_start = i * diffusion_chunk_size
-            samples_end = samples_start + chunk_n_sample
-            print(f"\n[Chunk {i+1}/{no_chunks}] Generating samples {samples_start+1}-{samples_end}/{N_sample}")
             chunk_x_l = _chunk_sample_diffusion(
-                chunk_n_sample, inplace_safe=inplace_safe, chunk_idx=i, total_chunks=no_chunks
+                chunk_n_sample, inplace_safe=inplace_safe, chunk_idx=i, total_chunks=no_chunks, pbar=pbar
             )
             x_l.append(chunk_x_l)
-            print(f"✓ Completed chunk {i+1}/{no_chunks} (samples {samples_start+1}-{samples_end})")
+
+            # Update progress bar after each chunk
+            if pbar:
+                pbar.update(chunk_n_sample)
 
         x_l = torch.cat(x_l, -3)  # [..., N_sample, N_atom, 3]
-        print(f"\n{'='*60}")
-        print(f"✓ Completed generation of all {N_sample} samples")
-        print(f"{'='*60}\n")
+
+    if pbar:
+        pbar.close()
+
+    print(f"\n{'='*60}")
+    print(f"✓ Completed generation of all {N_sample} samples")
+    print(f"{'='*60}\n")
     return x_l

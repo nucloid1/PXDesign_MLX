@@ -4,33 +4,29 @@ PXDesign now includes built-in progress tracking and resume capabilities for int
 
 ## Features
 
-### 1. Real-Time Progress Counter
+### 1. Real-Time Progress Bar
 
-The pipeline now displays detailed progress during diffusion sampling:
+The pipeline now displays a single, clean progress bar tracking overall sample generation:
 
 ```
 ============================================================
-Starting chunked diffusion: 500 samples in chunks of 100
+🧬 Generating 500 protein designs
 ============================================================
 
-[Chunk 1/5] Generating samples 1-100/500
-  Diffusion step [1/400] for samples [1-100/500]
-  Diffusion step [51/400] for samples [1-100/500]
-  Diffusion step [101/400] for samples [1-100/500]
-  ...
-  Diffusion step [400/400] for samples [1-100/500]
-✓ Completed chunk 1/5 (samples 1-100)
+🧬 Diffusion Progress:  45%|█████████         | 225/500 [12:30<13:45, 0.33sample/s]
+💾 Saving CIF files:   100%|██████████████████| 500/500 [00:45<00:00, 11.1file/s] saved=500, skipped=0
 
-[Chunk 2/5] Generating samples 101-200/500
-  Diffusion step [1/400] for samples [101-200/500]
-  ...
+============================================================
+✓ Completed generation of all 500 samples
+============================================================
 ```
 
-**Progress indicators show:**
-- Current chunk being processed
-- Sample range (e.g., 1-100/500)
-- Diffusion step (e.g., 51/400)
-- Completion status for each chunk
+**Progress bar shows:**
+- **Sample Progress**: Current sample / Total samples (e.g., 225/500)
+- **Percentage**: Visual completion percentage (e.g., 45%)
+- **Speed**: Generation rate (e.g., 0.33 samples/sec)
+- **Time Estimates**: Elapsed time and remaining time (ETA)
+- **CIF Saving**: File write progress with saved/skipped counts
 
 ### 2. Automatic Resume Capability
 
@@ -68,22 +64,32 @@ pxdesign pipeline --preset extended --input_json_path design.json --dump_dir res
 
 ⚠ Resuming sample=my_design: 150 samples already exist, continuing generation...
 
-  Saving CIF files: 350/500 (skipped 150 existing)
+🧬 Diffusion Progress: 100%|██████████████████| 500/500 [27:45<00:00, 0.30sample/s]
+💾 Saving CIF files:   100%|██████████████████| 500/500 [00:45<00:00, 11.1file/s] saved=350, skipped=150
+
 ✓ Saved 350 new samples, skipped 150 existing samples
 ```
 
-### 3. CIF File Progress
+### 3. Visual Progress Display
 
-When saving CIF files, progress is displayed:
+**Clean, single progress bar:**
 
-```
-  Saving CIF files: 50/500 (skipped 0 existing)
-  Saving CIF files: 100/500 (skipped 0 existing)
-  Saving CIF files: 150/500 (skipped 0 existing)
-  ...
-  Saving CIF files: 500/500 (skipped 0 existing)
-✓ Saved all 500 samples
-```
+1. **Diffusion Progress**: Shows overall sample generation
+   ```
+   🧬 Diffusion Progress:  60%|████████████        | 300/500 [16:40<11:07, 0.30sample/s]
+   ```
+
+2. **Save Progress**: Shows CIF file writing with live stats
+   ```
+   💾 Saving CIF files: 100%|██████████████████| 500/500 [00:45<00:00, 11.1file/s] saved=500, skipped=0
+   ```
+
+**Features:**
+- Clean, single-line display
+- Real-time speed metrics (samples/sec, files/sec)
+- Accurate time remaining estimates
+- Visual percentage completion
+- Live counters for saved/skipped files during resume
 
 ## Usage
 
@@ -277,22 +283,25 @@ pxdesign pipeline --dump_dir results/  # Fresh start
 # Start pipeline
 $ pxdesign pipeline --preset extended --input_json_path binder.json --dump_dir run1/
 
-Starting chunked diffusion: 500 samples in chunks of 100
-[Chunk 1/5] Generating samples 1-100/500
-  Diffusion step [1/400] for samples [1-100/500]
-  ...
-  Diffusion step [400/400] for samples [1-100/500]
-✓ Completed chunk 1/5
-  Saving CIF files: 100/500
-^C
+============================================================
+🧬 Generating 500 protein designs
+============================================================
+
+🧬 Diffusion Progress:  20%|████          | 100/500 [05:33<22:13, 0.30sample/s]
+^C  # Interrupted!
 
 # Resume after interruption
 $ pxdesign pipeline --preset extended --input_json_path binder.json --dump_dir run1/
 
 ⚠ Resuming sample=my_binder: 100 samples already exist, continuing generation...
 
-[Chunk 2/5] Generating samples 101-200/500
-  ...
+🧬 Diffusion Progress: 100%|██████████████████| 500/500 [27:45<00:00, 0.30sample/s]
+💾 Saving CIF files:   100%|██████████████████| 500/500 [00:35<00:00, 14.3file/s] saved=400, skipped=100
+
+✓ Saved 400 new samples, skipped 100 existing samples
+============================================================
+✓ Completed generation of all 500 samples
+============================================================
 ```
 
 ---

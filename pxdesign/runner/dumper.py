@@ -24,6 +24,11 @@ from protenix.data.utils import save_atoms_to_cif
 from protenix.utils.file_io import save_json
 from protenix.utils.torch_utils import round_values
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 
 def get_clean_full_confidence(full_confidence_dict: dict) -> dict:
     """
@@ -154,7 +159,20 @@ class DataDumper:
         saved_count = 0
         skipped_count = 0
 
-        for sample_idx in range(N_sample):
+        # Create progress bar for saving
+        if tqdm is not None:
+            pbar_desc = "💾 Saving CIF files"
+            sample_iterator = tqdm(
+                range(N_sample),
+                desc=pbar_desc,
+                unit="file",
+                ncols=100,
+                bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
+            )
+        else:
+            sample_iterator = range(N_sample)
+
+        for sample_idx in sample_iterator:
             output_fpath = os.path.join(
                 prediction_save_dir, f"{sample_name}_sample_{sample_idx}.cif"
             )
@@ -162,8 +180,8 @@ class DataDumper:
             # Check if sample already exists (for resume capability)
             if os.path.exists(output_fpath):
                 skipped_count += 1
-                if sample_idx % 50 == 0 or sample_idx == N_sample - 1:
-                    print(f"  Skipping existing samples: {skipped_count}/{sample_idx+1}")
+                if tqdm is not None:
+                    sample_iterator.set_postfix({"saved": saved_count, "skipped": skipped_count})
                 continue
 
             # fake b_factor
@@ -185,9 +203,9 @@ class DataDumper:
             )
             saved_count += 1
 
-            # Progress indicator for saving
-            if (sample_idx + 1) % 50 == 0 or sample_idx == N_sample - 1:
-                print(f"  Saving CIF files: {saved_count}/{N_sample} (skipped {skipped_count} existing)")
+            # Update progress bar postfix
+            if tqdm is not None:
+                sample_iterator.set_postfix({"saved": saved_count, "skipped": skipped_count})
 
         if skipped_count > 0:
             print(f"✓ Saved {saved_count} new samples, skipped {skipped_count} existing samples")
