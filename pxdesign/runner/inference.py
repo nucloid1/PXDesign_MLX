@@ -182,9 +182,13 @@ class InferenceRunner(object):
                         seq[ent_k]["label_asym_id"] = [label_asym_id]
                     orig_seqs[data["sample_name"]] = data["sequences"]
 
+                # Check for existing samples (resume capability)
+                existing_count = self.dumper.get_existing_sample_count("", sample, seed)
                 if self.dumper.check_completion("", sample, seed):
-                    self.print(f"Skip sample={sample}: already dumped.")
+                    self.print(f"✓ Skip sample={sample}: already completed ({existing_count} samples exist).")
                     continue
+                elif existing_count > 0:
+                    self.print(f"⚠ Resuming sample={sample}: {existing_count} samples already exist, continuing generation...")
 
                 pred = self.predict(data)
                 self.dumper.dump(

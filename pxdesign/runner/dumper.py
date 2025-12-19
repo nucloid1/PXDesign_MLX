@@ -127,6 +127,21 @@ class DataDumper:
         success_file_path = os.path.join(dump_dir, f"SUCCESS_FILE")  # json file
         return os.path.exists(success_file_path)
 
+    def get_existing_sample_count(self, dataset_name, sample_name, seed):
+        """Check how many samples already exist (for resume capability)."""
+        dump_dir = self._get_dump_dir(dataset_name, sample_name, seed)
+        prediction_dir = os.path.join(dump_dir, "predictions")
+
+        if not os.path.exists(prediction_dir):
+            return 0
+
+        # Count existing CIF files
+        import glob
+        existing_samples = glob.glob(
+            os.path.join(prediction_dir, f"{sample_name}_sample_*.cif")
+        )
+        return len(existing_samples)
+
     def _save_structure(
         self,
         pred_coordinates,
@@ -136,10 +151,21 @@ class DataDumper:
         entity_poly_type=None,
     ):
         N_sample = pred_coordinates.shape[0]
+        saved_count = 0
+        skipped_count = 0
+
         for sample_idx in range(N_sample):
             output_fpath = os.path.join(
                 prediction_save_dir, f"{sample_name}_sample_{sample_idx}.cif"
             )
+
+            # Check if sample already exists (for resume capability)
+            if os.path.exists(output_fpath):
+                skipped_count += 1
+                if sample_idx % 50 == 0 or sample_idx == N_sample - 1:
+                    print(f"  Skipping existing samples: {skipped_count}/{sample_idx+1}")
+                continue
+
             # fake b_factor
             atom_array.set_annotation(
                 "b_factor", np.round(np.zeros(len(atom_array)).astype(float), 2)
@@ -157,6 +183,16 @@ class DataDumper:
                 sample_name,
                 # save_wounresol=False,
             )
+            saved_count += 1
+
+            # Progress indicator for saving
+            if (sample_idx + 1) % 50 == 0 or sample_idx == N_sample - 1:
+                print(f"  Saving CIF files: {saved_count}/{N_sample} (skipped {skipped_count} existing)")
+
+        if skipped_count > 0:
+            print(f"✓ Saved {saved_count} new samples, skipped {skipped_count} existing samples")
+        else:
+            print(f"✓ Saved all {saved_count} samples")
 
     def _save_confidence(
         self,
