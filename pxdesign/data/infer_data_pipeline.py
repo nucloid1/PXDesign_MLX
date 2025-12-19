@@ -41,6 +41,15 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", module="biotite")
 
 
+def _identity_collate(batch):
+    """Identity collate function that returns the batch as-is.
+
+    This is defined at module level instead of as a lambda to support
+    multiprocessing pickling on macOS.
+    """
+    return batch
+
+
 def get_inference_dataloader(configs: Any) -> DataLoader:
     inference_dataset = InferenceDataset(
         input_json_path=configs.input_json_path,
@@ -57,7 +66,7 @@ def get_inference_dataloader(configs: Any) -> DataLoader:
         dataset=inference_dataset,
         batch_size=1,
         sampler=sampler,
-        collate_fn=lambda batch: batch,
+        collate_fn=_identity_collate,
         num_workers=configs.num_workers,
     )
     return dataloader

@@ -12,26 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pxdesign.utils.device import (
-    empty_cache,
-    get_amp_autocast,
-    get_autocast_context,
-    get_device,
-    get_device_count,
-    get_device_type,
-    is_gpu_available,
-    set_device,
-    synchronize,
-)
+"""
+MLX-based AlphaFold2 implementation for Apple Silicon.
 
-__all__ = [
-    "get_device",
-    "get_device_type",
-    "empty_cache",
-    "synchronize",
-    "is_gpu_available",
-    "get_autocast_context",
-    "get_amp_autocast",
-    "set_device",
-    "get_device_count",
-]
+This package provides a hybrid JAX-MLX implementation of AlphaFold2
+optimized for MPS GPU acceleration on M3 Max processors.
+"""
+
+__version__ = "0.1.0"
+
+from .jax_mlx_bridge import jax_to_mlx, mlx_to_jax
+
+__all__ = ["jax_to_mlx", "mlx_to_jax"]

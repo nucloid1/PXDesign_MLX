@@ -30,6 +30,13 @@ from protenix.utils.torch_utils import to_device
 from pxdesign.data.infer_data_pipeline import InferenceDataset, get_inference_dataloader
 from pxdesign.model.pxdesign import ProtenixDesign
 from pxdesign.runner.dumper import DataDumper
+from pxdesign.utils.device import (
+    empty_cache,
+    get_autocast_context,
+    get_device,
+    is_gpu_available,
+    set_device,
+)
 from pxdesign.utils.infer import (
     configure_runtime_env,
     convert_to_bioassembly_dict,
@@ -57,20 +64,28 @@ class InferenceRunner(object):
             f"Distributed environment: world size: {DIST_WRAPPER.world_size}, "
             + f"global rank: {DIST_WRAPPER.rank}, local rank: {DIST_WRAPPER.local_rank}"
         )
-        self.use_cuda = torch.cuda.device_count() > 0
-        if self.use_cuda:
-            self.device = torch.device("cuda:{}".format(DIST_WRAPPER.local_rank))
+        self.use_gpu = is_gpu_available()
+        self.device = get_device(DIST_WRAPPER.local_rank)
+        logging.info(f"Using device: {self.device}")
+
+        if self.device.type == "cuda":
             os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
             all_gpu_ids = ",".join(str(x) for x in range(torch.cuda.device_count()))
             devices = os.getenv("CUDA_VISIBLE_DEVICES", all_gpu_ids)
             logging.info(
                 f"LOCAL_RANK: {DIST_WRAPPER.local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]"
             )
-            torch.cuda.set_device(self.device)
-        else:
-            self.device = torch.device("cpu")
+            set_device(self.device)
+        elif self.device.type == "mps":
+            logging.info("Using Apple Metal Performance Shaders (MPS) for GPU acceleration")
+
         if DIST_WRAPPER.world_size > 1:
-            dist.init_process_group(backend="nccl")
+            if self.device.type == "cuda":
+                dist.init_process_group(backend="nccl")
+            else:
+                logging.warning(
+                    "Distributed training only supported on CUDA. Running on single device."
+                )
 
         configure_runtime_env(
             use_fast_ln=self.configs.use_fast_ln,
@@ -132,11 +147,7 @@ class InferenceRunner(object):
             "fp16": torch.float16,
         }[self.configs.dtype]
 
-        enable_amp = (
-            torch.autocast(device_type="cuda", dtype=eval_precision)
-            if torch.cuda.is_available()
-            else nullcontext()
-        )
+        enable_amp = get_autocast_context(eval_precision, self.device)
 
         data = to_device(data, self.device)
         with enable_amp:
@@ -191,8 +202,7 @@ class InferenceRunner(object):
                 logger.info(
                     f"[Rank {DIST_WRAPPER.rank}] {sample} {e}:\n{traceback.format_exc()}"
                 )
-                if hasattr(torch.cuda, "empty_cache"):
-                    torch.cuda.empty_cache()
+                empty_cache(self.device)
         return orig_seqs
 
     def print(self, msg: str):

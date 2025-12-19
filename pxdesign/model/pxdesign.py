@@ -23,6 +23,7 @@ from protenix.utils.torch_utils import autocasting_disable_decorator
 
 from pxdesign.model.embedders import DesignConditionEmbedder
 from pxdesign.model.generator import sample_diffusion
+from pxdesign.utils.device import empty_cache
 
 logger = get_logger(__name__)
 
@@ -147,7 +148,7 @@ class ProtenixDesign(nn.Module):
 
         for key in keys_to_delete:
             del input_feature_dict[key]
-        torch.cuda.empty_cache()
+        empty_cache()
 
         # Sample diffusion
         # [..., N_sample, N_atom, 3]
@@ -171,7 +172,7 @@ class ProtenixDesign(nn.Module):
         )
 
         if mode == "inference" and N_token > 2000:
-            torch.cuda.empty_cache()
+            empty_cache()
 
         return pred_dict
 

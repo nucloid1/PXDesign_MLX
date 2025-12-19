@@ -57,6 +57,7 @@ from pxdesign.runner.dumper import DataDumper
 from pxdesign.runner.helpers import save_top_designs, use_target_template_or_not
 from pxdesign.runner.inference import InferenceRunner
 from pxdesign.runner.presets import PRESETS
+from pxdesign.utils.device import get_device
 from pxdesign.utils.infer import (
     convert_to_bioassembly_dict,
     derive_seed,
@@ -135,7 +136,7 @@ class DesignPipeline(InferenceRunner):
                     orig_seqs[task_name],
                     task_name,
                     os.path.join(self.configs.dump_dir, "target_pred"),
-                    device="cuda:0",
+                    device=str(get_device()),
                     seed=seed,
                 )
             use_templ_list = DIST_WRAPPER.all_gather_object(use_target_template)

@@ -169,3 +169,12 @@ wandb/
 output*/
 release_data/
 tool_weights/
+# MLX test outputs and cache
+msa_cache/
+tmp/
+*_results/
+*.pdb
+*.cif
+example.yaml
+*_parsed_target.pml
+.DS_Store
