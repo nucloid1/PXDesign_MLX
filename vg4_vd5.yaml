@@ -1,0 +1,12 @@
+binder_length: 100
+target:
+  file: fold_vg4_vd5_2_model_0.cif
+  chains:
+    A:
+      crop:
+      - 1-118
+      msa: /Users/ethanputnam/PXDesign/msa_cache/20251219_5f1ee2/1
+    B:
+      crop:
+      - 1-118
+      msa: /Users/ethanputnam/PXDesign/msa_cache/20251219_5f1ee2/0

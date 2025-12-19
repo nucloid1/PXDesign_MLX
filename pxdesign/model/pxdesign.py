@@ -24,6 +24,7 @@ from protenix.utils.torch_utils import autocasting_disable_decorator
 from pxdesign.model.embedders import DesignConditionEmbedder
 from pxdesign.model.generator import sample_diffusion
 from pxdesign.utils.device import empty_cache
+from pxdesign.model.hybrid_pxdesign import enable_mlx_acceleration
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,10 @@ class ProtenixDesign(nn.Module):
 
         self.design_condition_embedder = DesignConditionEmbedder(configs=configs)
         self.diffusion_module = DiffusionModule(**configs.model.diffusion_module)
+
+        # Enable MLX acceleration for diffusion transformer (5-15x speedup on Apple Silicon)
+        enable_mlx_acceleration(self, use_mlx=None, verbose=True)
+
         # self.design_distogram_head = DistogramHead(
         #     **configs.model.design_distogram_head
         # )
